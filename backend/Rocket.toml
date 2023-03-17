@@ -1,0 +1,2 @@
+[default.databases.rusqlite]
+url = "file:rusqlite?mode=memory&cache=shared"
