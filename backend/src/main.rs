@@ -20,8 +20,6 @@ type Result<T, E = Debug<rusqlite::Error>> = std::result::Result<T, E>;
 #[derive(Debug, Clone, FromForm, Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]
 struct Loc {
-    #[serde(skip_deserializing, skip_serializing_if = "Option::is_none")]
-    id: Option<u32>,
     latitude: f64,
     longitude: f64,
     speed: f32,
@@ -33,7 +31,7 @@ struct Loc {
 async fn create(db: Db, data: Json<Loc>)  -> Result<Created<Json<Loc>>> {
     let item = data.clone();
     db.run(move |conn| {
-        conn.execute("INSERT INTO locs (plate, latitude, longitude, speed) VALUES (?1, ?2, ?3, ?4)", 
+        conn.execute("REPLACE INTO locs (plate, latitude, longitude, speed) VALUES (?1, ?2, ?3, ?4)", 
         params![ item.plate, item.latitude, item.longitude, item.speed])
     }).await?;
 
@@ -56,7 +54,7 @@ async fn list(db: Db) -> Result<Json<Vec<String>>> {
 async fn read(db: Db, plate: String) -> Option<Json<Loc>> {
     let loc = db.run(move |conn| {
         conn.query_row("SELECT * FROM locs WHERE plate = ?1", params![plate],
-            |r| Ok(Loc {id:  r.get(0)?,  plate: r.get(1)?, latitude: r.get(2)?, longitude: r.get(3)?, speed: r.get(4)? }))
+            |r| Ok(Loc {plate: r.get(0)?, latitude: r.get(1)?, longitude: r.get(2)?, speed: r.get(3)? }))
     }).await.ok()?;
 
     Some(Json(loc))
@@ -84,8 +82,7 @@ async fn init_db(rocket: Rocket<Build>) -> Rocket<Build> {
         .run(|conn| {
             conn.execute(r#"
                 CREATE TABLE locs (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    plate VARCHAR NOT NULL,
+                    plate VARCHAR NOT NULL PRIMARY KEY,
                     latitude FLOAT NOT NULL,
                     longitude FLOAT NOT NULL,
                     speed FLOAT NOT NULL,
